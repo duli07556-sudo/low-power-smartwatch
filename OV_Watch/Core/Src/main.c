@@ -72,7 +72,7 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 	//this must set same as keil setting
-	SCB->VTOR = 0x0000C000U;
+	//SCB->VTOR = 0x0000C000U;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -88,7 +88,7 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-	__enable_irq();
+	//__enable_irq();
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */

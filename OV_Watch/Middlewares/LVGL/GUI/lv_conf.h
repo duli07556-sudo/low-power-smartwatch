@@ -243,9 +243,10 @@
  *-----------*/
 
 /*1: Show CPU usage and FPS count*/
-#define LV_USE_PERF_MONITOR 0
+#define LV_USE_PERF_MONITOR 1  /* FPS feature: use LVGL's built-in performance FPS monitor. */
 #if LV_USE_PERF_MONITOR
-    #define LV_USE_PERF_MONITOR_POS LV_ALIGN_BOTTOM_RIGHT
+    /* FPS feature: center alignment keeps the complete text away from the rounded corners. */
+    #define LV_USE_PERF_MONITOR_POS LV_ALIGN_TOP_MID
 #endif
 
 /*1: Show the used memory and the memory fragmentation

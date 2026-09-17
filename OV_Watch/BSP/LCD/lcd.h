@@ -4,6 +4,9 @@
 
 void LCD_Fill(u16 xsta,u16 ysta,u16 xend,u16 yend,u16 color);//指定区域填充颜色
 void LCD_Color_Fill(u16 xsta,u16 ysta,u16 xend,u16 yend,u16 *color);
+HAL_StatusTypeDef LCD_Color_Fill_DMA_Start(u16 xsta,u16 ysta,u16 xend,u16 yend,u16 *color);
+HAL_StatusTypeDef LCD_Color_Fill_Polling(u16 xsta,u16 ysta,u16 xend,u16 yend,u16 *color);
+void LCD_Color_Fill_Complete(void);
 void LCD_DrawPoint(u16 x,u16 y,u16 color);//在指定位置画一个点
 void LCD_DrawLine(u16 x1,u16 y1,u16 x2,u16 y2,u16 color);//在指定位置画一条线
 void LCD_DrawRectangle(u16 x1, u16 y1, u16 x2, u16 y2,u16 color);//在指定位置画一个矩形
@@ -48,7 +51,6 @@ void LCD_ShowPicture(u16 x,u16 y,u16 length,u16 width,const u8 pic[]);//显示图片
 #define LBBLUE           0X2B12 //浅棕蓝色(选择条目的反色)
 
 #endif
-
 
 
 

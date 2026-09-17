@@ -3,11 +3,19 @@
 #include "lcdfont.h"
 #include "delay.h"
 #include "spi.h"
-#include "cmsis_os.h"
 
 #define OFFSET_Y 20
 
-extern osSemaphoreId_t DMA_SemaphoreHandle;
+static void LCD_SPI_SetDataSize(uint32_t data_size)
+{
+	while(__HAL_SPI_GET_FLAG(&hspi1, SPI_FLAG_BSY) == SET)
+	{
+	}
+
+	__HAL_SPI_DISABLE(&hspi1);
+	hspi1.Init.DataSize = data_size;
+	MODIFY_REG(hspi1.Instance->CR1, SPI_CR1_DFF, data_size);
+}
 /******************************************************************************
       函数说明：在指定区域填充颜色
       入口数据：xsta,ysta   起始坐标
@@ -35,23 +43,47 @@ void LCD_Fill(u16 xsta,u16 ysta,u16 xend,u16 yend,u16 color)
 								color       要填充的颜色
       返回值：  无
 ******************************************************************************/
-void LCD_Color_Fill(u16 xsta,u16 ysta,u16 xend,u16 yend,u16 *color_p)
+static uint32_t LCD_Color_Fill_Begin(u16 xsta,u16 ysta,u16 xend,u16 yend)
 {
-	u16 i,j,width,height; 
+	u16 width,height;
 	width = xend-xsta+1;
 	height = yend-ysta+1;
-	uint32_t size = width * height;
-	
+
 	LCD_Address_Set(xsta,ysta+OFFSET_Y,xend,yend+OFFSET_Y);
-	
-	hspi1.Init.DataSize = SPI_DATASIZE_16BIT;
-	hspi1.Instance->CR1|=SPI_CR1_DFF;
-	HAL_SPI_Transmit_DMA(&hspi1,(uint8_t*)color_p,size);
-	while(__HAL_DMA_GET_COUNTER(&hdma_spi1_tx)!=0);
-	
-	hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-	hspi1.Instance->CR1&=~SPI_CR1_DFF;
-	
+	LCD_SPI_SetDataSize(SPI_DATASIZE_16BIT);
+
+	return (uint32_t)width * height;
+}
+
+HAL_StatusTypeDef LCD_Color_Fill_DMA_Start(u16 xsta,u16 ysta,u16 xend,u16 yend,u16 *color_p)
+{
+	uint32_t size = LCD_Color_Fill_Begin(xsta, ysta, xend, yend);
+	HAL_StatusTypeDef status = HAL_SPI_Transmit_DMA(&hspi1, (uint8_t *)color_p, (uint16_t)size);
+
+	if(status != HAL_OK)
+	{
+		LCD_Color_Fill_Complete();
+	}
+	return status;
+}
+
+HAL_StatusTypeDef LCD_Color_Fill_Polling(u16 xsta,u16 ysta,u16 xend,u16 yend,u16 *color_p)
+{
+	uint32_t size = LCD_Color_Fill_Begin(xsta, ysta, xend, yend);
+	HAL_StatusTypeDef status = HAL_SPI_Transmit(&hspi1, (uint8_t *)color_p, (uint16_t)size, HAL_MAX_DELAY);
+
+	LCD_Color_Fill_Complete();
+	return status;
+}
+
+void LCD_Color_Fill(u16 xsta,u16 ysta,u16 xend,u16 yend,u16 *color_p)
+{
+	(void)LCD_Color_Fill_Polling(xsta, ysta, xend, yend, color_p);
+}
+
+void LCD_Color_Fill_Complete(void)
+{
+	LCD_SPI_SetDataSize(SPI_DATASIZE_8BIT);
 }
 
 /******************************************************************************
@@ -584,5 +616,4 @@ void LCD_ShowPicture(u16 x,u16 y,u16 length,u16 width,const u8 pic[])
 		}
 	}			
 }
-
 

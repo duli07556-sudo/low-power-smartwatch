@@ -14,10 +14,14 @@
 
 #include "lcd.h"
 #include "lcd_init.h"
+#include "spi.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 /*********************
  *      DEFINES
  *********************/
+#define LV_PORT_DISP_USE_ASYNC_DMA  1U  /* 1: async DMA, 0: SPI polling */
 
 /**********************
  *      TYPEDEFS
@@ -29,12 +33,17 @@
 static void disp_init(void);
 
 static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p);
+static void disp_wait(lv_disp_drv_t * disp_drv);
+static void disp_dma_finish(void);
 //static void gpu_fill(lv_disp_drv_t * disp_drv, lv_color_t * dest_buf, lv_coord_t dest_width,
 //        const lv_area_t * fill_area, lv_color_t color);
 
 /**********************
  *  STATIC VARIABLES
  **********************/
+static volatile uint8_t dma_busy = 0U;
+static lv_disp_drv_t * dma_disp_drv = NULL;
+static TaskHandle_t dma_waiting_task = NULL;
 
 /**********************
  *      MACROS
@@ -89,6 +98,7 @@ void lv_port_disp_init(void)
     /*Used to copy the buffer's content to the display*/
     // disp_flush的函数实现看下面
     disp_drv.flush_cb = disp_flush;
+    disp_drv.wait_cb = disp_wait;
 
     // 这里是LVGL画面渲染所使用的缓存空间分配，总共有三种方式
     // 你也可以改为malloc分配空间
@@ -148,13 +158,58 @@ static void disp_init(void)
  *'lv_disp_flush_ready()' has to be called when finished.*/
 static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p)
 {
-    /*The most simple case (but also the slowest) to put all pixels to the screen one-by-one*/
+#if LV_PORT_DISP_USE_ASYNC_DMA
+    dma_disp_drv = disp_drv;
+    dma_waiting_task = xTaskGetCurrentTaskHandle();
+    (void)ulTaskNotifyTake(pdTRUE, 0U);
+    dma_busy = 1U;
 
-    LCD_Color_Fill(area->x1,area->y1,area->x2,area->y2,(u16*)color_p);
-	
-    /*IMPORTANT!!!
-     *Inform the graphics library that you are ready with the flushing*/
+    if(LCD_Color_Fill_DMA_Start(area->x1, area->y1, area->x2, area->y2, (u16 *)color_p) != HAL_OK)
+    {
+        dma_busy = 0U;
+        lv_disp_flush_ready(disp_drv);
+    }
+#else
+    (void)LCD_Color_Fill_Polling(area->x1, area->y1, area->x2, area->y2, (u16 *)color_p);
     lv_disp_flush_ready(disp_drv);
+#endif
+}
+
+static void disp_wait(lv_disp_drv_t * disp_drv)
+{
+    (void)disp_drv;
+
+    if(dma_busy)
+    {
+        (void)ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    }
+}
+
+static void disp_dma_finish(void)
+{
+    BaseType_t higher_priority_task_woken = pdFALSE;
+
+    LCD_Color_Fill_Complete();
+    dma_busy = 0U;
+    lv_disp_flush_ready(dma_disp_drv);
+    vTaskNotifyGiveFromISR(dma_waiting_task, &higher_priority_task_woken);
+    portYIELD_FROM_ISR(higher_priority_task_woken);
+}
+
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef * hspi)
+{
+    if((hspi == &hspi1) && dma_busy)
+    {
+        disp_dma_finish();
+    }
+}
+
+void HAL_SPI_ErrorCallback(SPI_HandleTypeDef * hspi)
+{
+    if((hspi == &hspi1) && dma_busy)
+    {
+        disp_dma_finish();
+    }
 }
 
 /*OPTIONAL: GPU INTERFACE*/

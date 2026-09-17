@@ -180,7 +180,7 @@ void User_Tasks_Init(void)
     LvHandlerTaskHandle  = osThreadNew(LvHandlerTask, NULL, &LvHandlerTask_attributes);
     WDOGFeedTaskHandle   = osThreadNew(WDOGFeedTask, NULL, &WDOGFeedTask_attributes);
 	IdleEnterTaskHandle  = osThreadNew(IdleEnterTask, NULL, &IdleEnterTask_attributes);
-	StopEnterTaskHandle  = osThreadNew(StopEnterTask, NULL, &StopEnterTask_attributes);
+	//StopEnterTaskHandle  = osThreadNew(StopEnterTask, NULL, &StopEnterTask_attributes);
 	KeyTaskHandle 			 = osThreadNew(KeyTask, NULL, &KeyTask_attributes);
 	ScrRenewTaskHandle   = osThreadNew(ScrRenewTask, NULL, &ScrRenewTask_attributes);
 	SensorDataTaskHandle = osThreadNew(SensorDataUpdateTask, NULL, &SensorDataTask_attributes);
@@ -247,7 +247,7 @@ void TaskTickHook(void)
 void LvHandlerTask(void *argument)
 {
 	uint8_t IdleBreakstr=0;
-  while(1)
+   while(1)
   {
 		if(lv_disp_get_inactive_time(NULL)<1000)
 		{
