@@ -1,0 +1,31 @@
+# Keil MDK build output
+**/MDK-ARM/IAP_F411/
+**/MDK-ARM/output/
+**/Objects/
+**/Listings/
+
+# Compiler and linker artifacts
+*.o
+*.d
+*.crf
+*.axf
+*.map
+*.lst
+*.lnp
+*.dep
+*.hex
+*.bin
+*.build_log.htm
+
+# IDE and user-specific files
+*.uvguix.*
+*.uvoptx
+*.log
+*.lock
+*.bak
+*.tmp
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
