@@ -45,7 +45,7 @@
 #define EOT                     (0x04)  /* end of transmission */
 #define ACK                     (0x06)  /* acknowledge */
 #define NAK                     (0x15)  /* negative acknowledge */
-#define CA                      (0x18)  /* two of these in succession aborts transfer */
+#define CA                      (0x18)  /* two of these in succession aborts transfer  连续两次出现该情况，即中止传输。*/
 #define CRC16                   (0x43)  /* 'C' == 0x43, request 16-bit CRC */
 
 #define ABORT1                  (0x41)  /* 'A' == 0x41, abort by user */

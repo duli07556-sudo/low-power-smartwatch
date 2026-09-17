@@ -37,6 +37,8 @@
 extern uint8_t FileName[];
 
 /* Private function prototypes -----------------------------------------------*/
+/* IAP fix: forward declaration used by the receive-side CRC16 validation. */
+uint16_t Cal_CRC16(const uint8_t* data, uint32_t size);
 /* Private functions ---------------------------------------------------------*/
 
 /**
@@ -128,6 +130,13 @@ static int32_t Receive_Packet (uint8_t *data, int32_t *length, uint32_t timeout)
   {
     return -1;
   }
+  /* IAP fix: reject a packet when its calculated CRC16 differs from the two-byte packet trailer. 接收端增加 CRC16 校验*/
+  if (Cal_CRC16(&data[PACKET_HEADER], packet_size) !=
+      (((uint16_t)data[PACKET_HEADER + packet_size] << 8) |
+       (uint16_t)data[PACKET_HEADER + packet_size + 1U]))
+  {
+    return -1;
+  }
   *length = packet_size;
   return 0;
 }
@@ -146,9 +155,9 @@ int32_t Ymodem_Receive (uint8_t *buf)
   /* Initialize flashdestination variable */
   flashdestination = APPLICATION_ADDRESS;
 
-  for (session_done = 0, errors = 0, session_begin = 0; ;)
+  for (session_done = 0, errors = 0, session_begin = 0; ;)     //管理**整个 Ymodem 传输会话**（一次会话可传多个文件），传完所有文件后结束,退出条件session_done = 1，会话建立 → 传文件 1 → 传文件 2 → … → 会话结束
   {
-    for (packets_received = 0, file_done = 0, buf_ptr = buf; ;)
+    for (packets_received = 0, file_done = 0, buf_ptr = buf; ;)   //管理**单个文件的完整接收**（文件名包 + N 个数据包 + EOT 结束，退出条件file_done = 1，``接收文件名 → 接收数据包 → 响应 EOT → 文件传输完成
     {
       switch (Receive_Packet(packet_data, &packet_length, NAK_TIMEOUT))
       {
@@ -162,7 +171,17 @@ int32_t Ymodem_Receive (uint8_t *buf)
               return 0;
             /* End of transmission */
             case 0:
+              /* IAP fix: complete the standard Ymodem EOT handshake before requesting the final empty packet. */
+              Send_Byte(NAK);
+              if ((Receive_Byte(&packet_data[0], NAK_TIMEOUT) != 0) || (packet_data[0] != EOT))
+              {
+                /* IAP fix: abort cleanly when the sender does not provide the required second EOT. */
+                Send_Byte(CA);
+                Send_Byte(CA);
+                return 0;
+              }
               Send_Byte(ACK);
+              Send_Byte(CRC16);
               file_done = 1;
               break;
             /* Normal packet */
@@ -193,7 +212,7 @@ int32_t Ymodem_Receive (uint8_t *buf)
 
                     /* Test the size of the image to be sent */
                     /* Image size is greater than Flash size */
-                    if (size > (USER_FLASH_SIZE + 1))
+                    if (size > (USER_FLASH_SIZE + 1))          //如果文件超过 APP 分区，取消升级
                     {
                       /* End session */
                       Send_Byte(CA);
@@ -201,8 +220,8 @@ int32_t Ymodem_Receive (uint8_t *buf)
                       return -1;
                     }
                     /* erase user application area */
-                    FLASH_If_Erase(APPLICATION_ADDRESS);
-                    Send_Byte(ACK);
+                    FLASH_If_Erase(APPLICATION_ADDRESS);     //如果文件大小正常后，擦除APP Flash区域
+                    Send_Byte(ACK);						     //文件信息已经收到，请开始发送程序数据
                     Send_Byte(CRC16);
                   }
                   /* Filename packet is empty, end session */
@@ -221,7 +240,7 @@ int32_t Ymodem_Receive (uint8_t *buf)
                   ramsource = (uint32_t)buf;
 
                   /* Write received data in Flash */
-                  if (FLASH_If_Write(&flashdestination, (uint32_t*) ramsource, (uint16_t) packet_length/4)  == 0)
+                  if (FLASH_If_Write(&flashdestination, (uint32_t*) ramsource, (uint16_t) packet_length/4)  == 0)   //CRC、包序号都正确后，数据在写入flash
                   {
                     Send_Byte(ACK);
                   }
@@ -233,8 +252,8 @@ int32_t Ymodem_Receive (uint8_t *buf)
                     return -2;
                   }
                 }
-                packets_received ++;
-                session_begin = 1;
+                packets_received ++;				//已收包数 +1，期望下一个序号
+                session_begin = 1;					//标记会话已经正式开始（后续出错就要计数了）
               }
           }
           break;
@@ -253,20 +272,20 @@ int32_t Ymodem_Receive (uint8_t *buf)
             Send_Byte(CA);
             return 0;
           }
-          Send_Byte(CRC16);      // 'C' == 0x43, request 16-bit CRC
+          Send_Byte(CRC16);
           break;
       }
-      if (file_done != 0)
+      if (file_done != 0)       //为 1 → 当前文件传完，break 跳出内层文件循环，回到外层会话循环
       {
         break;
       }
     }
-    if (session_done != 0)
+    if (session_done != 0)     //为 1 → 整个会话结束，break 跳出外层会话循环
     {
       break;
     }
   }
-  return (int32_t)size;
+  return (int32_t)size;   //正常传输完成，返回文件大小 `size`
 }
 
 /**
@@ -350,7 +369,7 @@ void Ymodem_PreparePacket(uint8_t *SourceBuf, uint8_t *data, uint8_t pktNo, uint
   {
     for (i = size + PACKET_HEADER; i < packetSize + PACKET_HEADER; i++)
     {
-      data[i] = 0x1A; /* EOF (0x1A) or 0x00 */
+      data[i] = 0x1A; /* EOF (0x1A) or 0x00 */     //Ymodem发送代码使用 0x1A 填充，对于不足128或者1024的数据包
     }
   }
 }

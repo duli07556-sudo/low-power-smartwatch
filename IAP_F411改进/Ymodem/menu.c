@@ -34,6 +34,8 @@
 #include "flash_if.h"
 #include "menu.h"
 #include "ymodem.h"
+/* IAP fix: memcmp is used to validate the stored APP Flag before a manual jump. */
+#include "string.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -68,11 +70,18 @@ void SerialDownload(void)
   // clear the flag in flash in 0x08008000
   uint32_t flashdestination = ADDR_FLASH_SECTOR_2;
   // sector 2
-  FLASH_If_Erase_One_Sector(2U);   //擦除Flag扇区
+  /* IAP fix: abort the upgrade if the old APP Flag cannot be cleared safely. 检查 APP Flag 扇区擦除结果*/
+  if (FLASH_If_Erase_One_Sector(2U) != 0U)
+  {
+    SerialPutString("\r\nAPP Flag Erase Error! Download Aborted.\r\n");
+    return;
+  }
 
   /* Waiting for file sent */
   SerialPutString("Waiting for the file to be sent ... (press 'a' to abort)\n\r");
   Size = Ymodem_Receive(&tab_1024[0]);
+  /* IAP fix: give the PC Ymodem sender time to release the serial port before normal text is printed. 解决下载结束只出现一个 =*/
+  HAL_Delay(1000);
   if (Size > 0)
   {
     SerialPutString("\n\n\r Programming Completed Successfully!\n\r--------------------------------\r\n Name: ");
@@ -203,6 +212,13 @@ void Main_Menu(void)
     }
     else if (key == 0x33) /* execute the new program */
     {
+      /* IAP fix: do not jump manually unless a completed upgrade has stored the expected APP Flag.选项 3 跳转前检查 Flag */
+      if (memcmp((const void *)ADDR_FLASH_SECTOR_2, "APP FLAG", 8U) != 0)
+      {
+        SerialPutString("\r\nAPP Flag Invalid! Execute Aborted.\r\n");
+        continue;
+      }
+
       //user code here
       SysTick->CTRL = 0X00;//禁止SysTick
       SysTick->LOAD = 0;
