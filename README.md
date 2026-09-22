@@ -56,32 +56,7 @@ flowchart LR
 
 界面事件只更新运行数据并向 `DataSave_MessageQueue` 投递保存请求，`DataSaveTask` 集中执行软件 I2C 写入，避免 EEPROM 写操作阻塞 LVGL。开机时由 `HardwareInitTask` 校验 EEPROM 标志并恢复有效数据。
 
-```mermaid
-flowchart LR
-    subgraph Runtime[运行阶段]
-        UI[设置页事件] --> RAM[更新运行数据]
-        RAM --> REQ[DataSave_Request]
-        SENSOR[传感器数据更新] --> QUEUE
-        REQ --> QUEUE[DataSave 消息队列]
-        QUEUE --> TASK[DataSaveTask]
-    end
-
-    subgraph Storage[BL24C02 数据布局]
-        TASK --> FLAG[0x00~0x01<br/>0x55 / 0xAA]
-        TASK --> SETTINGS[0x10~0x13<br/>抬腕、APP 同步、亮屏与 STOP 时间]
-        TASK --> DAILY[0x20~0x22<br/>日期与 16 位步数]
-    end
-
-    subgraph Restore[重新上电]
-        INIT[HardwareInitTask] --> CHECK{检查 0x55 / 0xAA}
-        CHECK -->|有效| LOAD[恢复用户设置]
-        LOAD --> DATE{保存日期等于当天?}
-        DATE -->|是| STEPS[恢复当天步数]
-        DATE -->|否| ZERO[当天步数从 0 开始]
-    end
-
-    Storage -. 下次启动读取 .-> INIT
-```
+![智能手表数据掉电保存与恢复架构](docs/data-persistence-flow.svg)
 
 | EEPROM 地址 | 保存内容 |
 | --- | --- |
