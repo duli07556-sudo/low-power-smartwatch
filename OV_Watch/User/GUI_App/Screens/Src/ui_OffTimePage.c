@@ -3,6 +3,7 @@
 #include "../Inc/ui_HomePage.h"
 #include "../Inc/ui_SetPage.h"
 #include "../Inc/ui_OffTimePage.h"
+#include "user_DataSaveTask.h"
 
 ///////////////////// Page Manager //////////////////
 Page_t Page_LOffTimeSet = {ui_LOffTimeSetPage_screen_init, ui_LOffTimeSetPage_screen_deinit, &ui_LOffTimeSetPage};
@@ -30,6 +31,40 @@ uint8_t ui_TTimeValue = 15;
 
 uint8_t ui_LTimeSelected = 0;
 uint8_t ui_TTimeSelected = 0;
+
+void ui_OffTimeSettingsRestore(uint8_t light_time, uint8_t stop_time)
+{
+	uint8_t i;
+	uint8_t light_time_valid = 0;
+	uint8_t stop_time_valid = 0;
+
+	// 修复：只接受界面支持的值；旧 EEPROM 的空白值会回退到 10 秒和 15 秒。
+	for(i = 0; i < 6; i++)
+	{
+		if(ui_LTimeOptions[i] == light_time)
+		{
+			ui_LTimeSelected = i;
+			ui_LTimeValue = light_time;
+			light_time_valid = 1;
+		}
+		if(ui_TTimeOptions[i] == stop_time)
+		{
+			ui_TTimeSelected = i;
+			ui_TTimeValue = stop_time;
+			stop_time_valid = 1;
+		}
+	}
+
+	// 修复：无效值或“常亮时间 >= STOP 时间”都恢复为安全默认值。
+	if(!light_time_valid || !stop_time_valid || ui_LTimeValue >= ui_TTimeValue)
+	{
+		ui_LTimeSelected = 0;
+		ui_TTimeSelected = 0;
+		ui_LTimeValue = ui_LTimeOptions[0];
+		ui_TTimeValue = ui_TTimeOptions[0];
+	}
+}
+
 ///////////////////// FUNCTIONS ////////////////////
 void ui_event_LTimeSetOKButton(lv_event_t * e)
 {
@@ -38,6 +73,14 @@ void ui_event_LTimeSetOKButton(lv_event_t * e)
     {
       ui_LTimeSelected = lv_roller_get_selected(ui_LTimeSetRoller);
 			ui_LTimeValue = ui_LTimeOptions[ui_LTimeSelected];
+
+			// 修复：常亮时间必须小于 STOP 时间；冲突时同步提升 STOP 时间。
+			if(ui_LTimeValue >= ui_TTimeValue)
+			{
+				ui_TTimeSelected = ui_LTimeSelected;
+				ui_TTimeValue = ui_TTimeOptions[ui_TTimeSelected];
+			}
+			DataSave_Request(); // 修改确认后立即交给保存任务写 EEPROM。
       Page_Back();
 			// if(ScrRenewStack.Data[ScrRenewStack.Top_Point-1] == (long long int)&ui_HomePage)
 			// {
@@ -59,7 +102,15 @@ void ui_event_TTimeSetOKButton(lv_event_t * e)
     if(event_code == LV_EVENT_CLICKED)
     {
 			ui_TTimeSelected = lv_roller_get_selected(ui_TTimeSetRoller);
-      ui_TTimeValue = ui_LTimeOptions[ui_TTimeSelected];
+      ui_TTimeValue = ui_TTimeOptions[ui_TTimeSelected]; // 修复：原代码误用了常亮时间数组。
+
+			// 修复：STOP 时间必须大于常亮时间；冲突时同步降低常亮时间。
+			if(ui_TTimeValue <= ui_LTimeValue)
+			{
+				ui_LTimeSelected = ui_TTimeSelected;
+				ui_LTimeValue = ui_LTimeOptions[ui_LTimeSelected];
+			}
+			DataSave_Request(); // 修改确认后立即交给保存任务写 EEPROM。
       Page_Back();
 			// if(ScrRenewStack.Data[ScrRenewStack.Top_Point-1] == (long long int)&ui_HomePage)
 			// {

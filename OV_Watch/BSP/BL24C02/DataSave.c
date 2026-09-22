@@ -8,9 +8,12 @@ EEPROM Data description:
 
 [0x10]:user wrist setting, HWInterface.IMU.wrist_is_enabled
 [0x11]:user ui_APPSy_EN setting
+[0x12]:normal brightness duration, ui_LTimeValue
+[0x13]:STOP mode duration, ui_TTimeValue
 
 [0x20]:Last Save Day(0-31)
-[0x21]:Day Steps
+[0x21]:Day Steps high byte
+[0x22]:Day Steps low byte
 
 *******************************************/
 

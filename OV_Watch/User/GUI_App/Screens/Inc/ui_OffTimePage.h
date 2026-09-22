@@ -26,6 +26,9 @@ extern const uint8_t ui_TTimeOptions[6];
 extern uint8_t ui_LTimeValue;
 extern uint8_t ui_TTimeValue;
 
+// 上电时恢复 EEPROM 中的时间值，并同步滚轮的选中位置。
+void ui_OffTimeSettingsRestore(uint8_t light_time, uint8_t stop_time);
+
 extern Page_t Page_LOffTimeSet;
 extern Page_t Page_TOffTimeSet;
 

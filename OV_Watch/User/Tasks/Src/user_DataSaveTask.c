@@ -4,6 +4,7 @@
 //APP SYS setting
 #include "ui_DateTimeSetPage.h"
 #include "ui_HomePage.h"
+#include "ui_OffTimePage.h"
 
 #include "main.h"
 #include "rtc.h"
@@ -25,14 +26,30 @@ EEPROM Data description:
 
 [0x10]:user wrist setting, HWInterface.IMU.wrist_is_enabled
 [0x11]:user ui_APPSy_EN setting
+[0x12]:normal brightness duration, ui_LTimeValue
+[0x13]:STOP mode duration, ui_TTimeValue
 
 [0x20]:Last Save Day(0-31)
-[0x21]:Day Steps
+[0x21]:Day Steps high byte
+[0x22]:Day Steps low byte
 
 *******************************************/
 
 
 /* Private function prototypes -----------------------------------------------*/
+
+/**
+  * @brief  Request DataSaveTask to save the latest settings.
+  * @note   The queue item carries no data. DataSaveTask reads the latest global
+  *         values, so an already pending request also covers later changes.
+  */
+void DataSave_Request(void)
+{
+	uint8_t save_request = 1;
+
+	// 修复：设置改变时立即通知保存任务，避免必须等到 STOP 唤醒后才写 EEPROM。
+	(void)osMessageQueuePut(DataSave_MessageQueue, &save_request, 0, 0);
+}
 
 /* Tasks ---------------------------------------------------------------------*/
 
@@ -54,10 +71,12 @@ void DataSaveTask(void *argument)
 			date change
 			Step change
 			****************/
-			uint8_t dat[3];
+			uint8_t dat[4];
 			dat[0] = HWInterface.IMU.wrist_is_enabled;
 			dat[1] = ui_APPSy_EN;
-			SettingSave(dat,0x10,2);
+			dat[2] = ui_LTimeValue;
+			dat[3] = ui_TTimeValue;
+			SettingSave(dat,0x10,4); // 修复：0x10~0x13 一次保存四项用户设置。
 
 			RTC_DateTypeDef nowdate;
 			HAL_RTC_GetDate(&hrtc,&nowdate,RTC_FORMAT_BIN);

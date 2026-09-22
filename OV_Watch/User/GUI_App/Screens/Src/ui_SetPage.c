@@ -7,6 +7,7 @@
 #include "../Inc/ui_DateTimeSetPage.h"
 
 #include "../../../Func/Inc/HWDataAccess.h"
+#include "user_DataSaveTask.h"
 
 ///////////////////// Page Manager //////////////////
 Page_t Page_Set = {ui_SetPage_screen_init, ui_SetPage_screen_deinit, &ui_SetPage};
@@ -100,6 +101,9 @@ void ui_event_WristSwitch(lv_event_t * e)
             //close
 			HWInterface.IMU.WristDisable();
        }
+
+       // 修复：抬腕开关与同步 APP 开关使用同一条异步保存链路。
+       DataSave_Request();
     }
 }
 

@@ -28,6 +28,7 @@
 
 // APP SYS setting
 #include "ui_DateTimeSetPage.h"
+#include "ui_OffTimePage.h"
 
 /* Private typedef -----------------------------------------------------------*/
 
@@ -118,18 +119,21 @@ void HardwareInitTask(void *argument)
     EEPROM_Init();
     if(!EEPROM_Check())
     {
-      uint8_t recbuf[3];
-      SettingGet(recbuf,0x10,2);
-      if((recbuf[0]!=0 && recbuf[0]!=1) || (recbuf[1]!=0 && recbuf[1]!=1))
-      {
-        HWInterface.IMU.wrist_is_enabled = 0;
-        ui_APPSy_EN = 0;
-      }
-      else
-      {
+      uint8_t recbuf[4];
+
+      // 修复：逐项校验并恢复 0x10~0x13，避免某一项损坏拖累其他有效设置。
+      SettingGet(recbuf,0x10,4);
+      if(recbuf[0] == 0 || recbuf[0] == 1)
         HWInterface.IMU.wrist_is_enabled = recbuf[0];
+      else
+        HWInterface.IMU.wrist_is_enabled = 0;
+
+      if(recbuf[1] == 0 || recbuf[1] == 1)
         ui_APPSy_EN = recbuf[1];
-      }
+      else
+        ui_APPSy_EN = 0;
+
+      ui_OffTimeSettingsRestore(recbuf[2], recbuf[3]);
 
       RTC_DateTypeDef nowdate;
       HAL_RTC_GetDate(&hrtc,&nowdate,RTC_FORMAT_BIN);

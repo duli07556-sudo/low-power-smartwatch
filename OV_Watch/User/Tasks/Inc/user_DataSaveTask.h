@@ -8,6 +8,8 @@ extern "C" {
 #include "user_TasksInit.h"
 
 
+// 设置改变时只投递保存请求，EEPROM 实际写入统一放在 DataSaveTask 中执行。
+void DataSave_Request(void);
 void DataSaveTask(void *argument);
 
 	

@@ -4,6 +4,7 @@
 #include "../Inc/ui_SetPage.h"
 #include "../Inc/ui_DateTimeSetPage.h"
 #include "../../../Func/Inc/HWDataAccess.h"
+#include "user_DataSaveTask.h"
 
 ///////////////////// Page Manager //////////////////
 Page_t Page_DateTimeSet = {ui_DateTimeSetPage_screen_init, ui_DateTimeSetPage_screen_deinit, &ui_DateTimeSetPage};
@@ -140,6 +141,9 @@ void ui_event_APPSySwitch(lv_event_t * e)
             //close
                  ui_APPSy_EN=0;
        }
+
+       // 修复：同步 APP 开关改变后立即通知保存任务，掉电重启可恢复本次选择。
+       DataSave_Request();
     }
 }
 
