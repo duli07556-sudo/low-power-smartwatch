@@ -71,8 +71,8 @@ void ui_event_LTimeSetOKButton(lv_event_t * e)
     lv_event_code_t event_code = lv_event_get_code(e);
     if(event_code == LV_EVENT_CLICKED)
     {
-      ui_LTimeSelected = lv_roller_get_selected(ui_LTimeSetRoller);
-			ui_LTimeValue = ui_LTimeOptions[ui_LTimeSelected];
+		ui_LTimeSelected = lv_roller_get_selected(ui_LTimeSetRoller);
+		ui_LTimeValue = ui_LTimeOptions[ui_LTimeSelected];
 
 			// 修复：常亮时间必须小于 STOP 时间；冲突时同步提升 STOP 时间。
 			if(ui_LTimeValue >= ui_TTimeValue)
@@ -81,7 +81,7 @@ void ui_event_LTimeSetOKButton(lv_event_t * e)
 				ui_TTimeValue = ui_TTimeOptions[ui_TTimeSelected];
 			}
 			DataSave_Request(); // 修改确认后立即交给保存任务写 EEPROM。
-      Page_Back();
+		Page_Back();
 			// if(ScrRenewStack.Data[ScrRenewStack.Top_Point-1] == (long long int)&ui_HomePage)
 			// {
 			// 	ui_HomePage_screen_init();

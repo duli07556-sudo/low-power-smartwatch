@@ -49,7 +49,14 @@ void MPUCheckTask(void *argument)
 	{
 		if(HWInterface.IMU.wrist_is_enabled)
 		{
-			if(MPU_isHorizontal())
+			uint8_t is_horizontal;
+
+			/* MPU6050 and LSM303 share PB13/PB14; use the same task mutex. */
+			SensorI2C_TaskLock();
+			is_horizontal = MPU_isHorizontal();
+			SensorI2C_TaskUnlock();
+
+			if(is_horizontal)
 			{
 				HWInterface.IMU.wrist_state = WRIST_UP;
 			}
@@ -135,7 +142,10 @@ void SensorDataUpdateTask(void *argument)
 			//steps
 			if(!(HWInterface.IMU.ConnectionError))
 			{
+				/* Keep the complete MPU6050 transaction atomic on the shared bus. */
+				SensorI2C_TaskLock();
 				HWInterface.IMU.Steps = HWInterface.IMU.GetSteps();
+				SensorI2C_TaskUnlock();
 			}
 
 			//temp and humi
@@ -143,7 +153,10 @@ void SensorDataUpdateTask(void *argument)
 			{
 				//temp and humi messure
 				float humi,temp;
+				/* Keep the complete AHT21 transaction atomic on the shared bus. */
+				SensorI2C_TaskLock();
 				HWInterface.AHT21.GetHumiTemp(&humi,&temp);
+				SensorI2C_TaskUnlock();
 				//check
 				if(temp>-10 && temp<50 && humi>0 && humi<100)
 				{
@@ -182,7 +195,10 @@ void SensorDataUpdateTask(void *argument)
 			{
 				//temp and humi messure
 				float humi,temp;
+				/* Keep the complete AHT21 transaction atomic on the shared bus. */
+				SensorI2C_TaskLock();
 				HWInterface.AHT21.GetHumiTemp(&humi,&temp);
+				SensorI2C_TaskUnlock();
 				//check
 				if(temp>-10 && temp<50 && humi>0 && humi<100)
 				{
@@ -196,6 +212,8 @@ void SensorDataUpdateTask(void *argument)
 		else if(Page_Get_NowPage()->page_obj == &ui_CompassPage)
 		{
 			osMessageQueuePut(IdleBreak_MessageQueue, &IdleBreakstr, 0, 1);
+			/* Protect the complete LSM303 wake-up and sample sequence. */
+			SensorI2C_TaskLock();
 			//receive the sensor wakeup message, sensor wakeup
 			LSM303DLH_Wakeup();
 			//SPL_Wakeup();
@@ -206,6 +224,7 @@ void SensorDataUpdateTask(void *argument)
 				int16_t Xa,Ya,Za,Xm,Ym,Zm;
 				LSM303_ReadAcceleration(&Xa,&Ya,&Za);
 				LSM303_ReadMagnetic(&Xm,&Ym,&Zm);
+				SensorI2C_TaskUnlock();
 				float temp = Azimuth_Calculate(Xa,Ya,Za,Xm,Ym,Zm)+0;//0 offset
 				if(temp<0)
 				{temp+=360;}
@@ -215,11 +234,18 @@ void SensorDataUpdateTask(void *argument)
 					HWInterface.Ecompass.direction = (uint16_t)temp;
 				}
 			}
+			else
+			{
+				SensorI2C_TaskUnlock();
+			}
 			//if the sensor is no problem
 			if(!HWInterface.Barometer.ConnectionError)
 			{
 				//messure
+				/* Keep the complete SPL06 transaction atomic on the shared bus. */
+				SensorI2C_TaskLock();
 				float alti = Altitude_Calculate();
+				SensorI2C_TaskUnlock();
 				//check
 				if(1)
 				{

@@ -27,6 +27,57 @@
 
 /* Private variables ---------------------------------------------------------*/
 
+/*
+ * One mutex is shared by tasks that use the PB13/PB14 sensor bus.
+ * Counters remain visible in Keil Watch for the controlled A/B test.
+ */
+#if SENSOR_I2C_TASK_MUTEX_ENABLE
+static osMutexId_t SensorI2CMutexHandle;
+#else
+static volatile osThreadId_t SensorI2CDiagOwner;
+#endif
+volatile uint32_t g_sensor_i2c_wait_count = 0;
+volatile uint32_t g_sensor_i2c_max_wait_ticks = 0;
+
+void SensorI2C_TaskLock(void)
+{
+#if SENSOR_I2C_TASK_MUTEX_ENABLE
+	osStatus_t status;
+	uint32_t start_tick = osKernelGetTickCount();
+
+	/* A failed zero-time acquire proves that another task owns the bus. */
+	status = osMutexAcquire(SensorI2CMutexHandle, 0U);
+	if(status != osOK)
+	{
+		uint32_t wait_ticks;
+		g_sensor_i2c_wait_count++;
+		status = osMutexAcquire(SensorI2CMutexHandle, osWaitForever);
+		configASSERT(status == osOK);
+		wait_ticks = osKernelGetTickCount() - start_tick;
+		if(wait_ticks > g_sensor_i2c_max_wait_ticks)
+			g_sensor_i2c_max_wait_ticks = wait_ticks;
+	}
+#else
+	osThreadId_t self = osThreadGetId();
+
+	/* Baseline only: detect overlap without blocking the second task. */
+	if(SensorI2CDiagOwner != NULL && SensorI2CDiagOwner != self)
+		g_sensor_i2c_wait_count++;
+	else if(SensorI2CDiagOwner == NULL)
+		SensorI2CDiagOwner = self;
+#endif
+}
+
+void SensorI2C_TaskUnlock(void)
+{
+#if SENSOR_I2C_TASK_MUTEX_ENABLE
+	osMutexRelease(SensorI2CMutexHandle);
+#else
+	if(SensorI2CDiagOwner == osThreadGetId())
+		SensorI2CDiagOwner = NULL;
+#endif
+}
+
 
 /* Timers --------------------------------------------------------------------*/
 osTimerId_t IdleTimerHandle;
@@ -160,6 +211,10 @@ void User_Tasks_Init(void)
 {
   /* add mutexes, ... */
 
+#if SENSOR_I2C_TASK_MUTEX_ENABLE
+	SensorI2CMutexHandle = osMutexNew(NULL);
+	configASSERT(SensorI2CMutexHandle != NULL);
+#endif
   /* add semaphores, ... */
 
   /* start timers, add new ones, ... */
@@ -190,7 +245,7 @@ void User_Tasks_Init(void)
 	MPUCheckTaskHandle		= osThreadNew(MPUCheckTask, NULL, &MPUCheckTask_attributes);
 	DataSaveTaskHandle		= osThreadNew(DataSaveTask, NULL, &DataSaveTask_attributes);
 
-  /* add events, ... */
+	/* add events, ... */
 
 
 	/* add  others ... */
@@ -247,7 +302,7 @@ void TaskTickHook(void)
 void LvHandlerTask(void *argument)
 {
 	uint8_t IdleBreakstr=0;
-   while(1)
+  while(1)
   {
 		if(lv_disp_get_inactive_time(NULL)<1000)
 		{

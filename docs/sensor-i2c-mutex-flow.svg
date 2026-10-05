@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1240" viewBox="0 0 1600 1240" role="img" aria-labelledby="title desc">
+  <title id="title">智能手表共享传感器 I²C 互斥锁逻辑</title>
+  <desc id="desc">展示三个任务复用同一把传感器互斥锁、数据保存时分开两条I2C总线、锁忙时的阻塞及优先级继承，以及尚未接入互斥锁的路径。</desc>
+  <defs>
+    <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#f8fbff"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+    <linearGradient id="blue" x2="1" y2="0"><stop stop-color="#073b78"/><stop offset="1" stop-color="#0d67bd"/></linearGradient>
+    <linearGradient id="orange" x2="1" y2="0"><stop stop-color="#c94c05"/><stop offset="1" stop-color="#f18722"/></linearGradient>
+    <filter id="shadow" x="-10%" y="-15%" width="120%" height="135%"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0a2e59" flood-opacity="0.13"/></filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#172033"/></marker>
+    <marker id="mutedArrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#b37a20"/></marker>
+    <style>
+      text{font-family:"Microsoft YaHei","Noto Sans CJK SC",Arial,sans-serif;fill:#172033}
+      .title{font-size:49px;font-weight:700;fill:#0c3269}
+      .subtitle{font-size:23px;font-weight:600;fill:#4c6079}
+      .tab{font-size:26px;font-weight:700;fill:white}
+      .head{font-size:23px;font-weight:700}
+      .body{font-size:19px}
+      .small{font-size:17px;fill:#49627f}
+      .blueText{fill:#075cad}
+      .orangeText{fill:#b94d06}
+      .line{fill:none;stroke:#172033;stroke-width:2.5;stroke-linejoin:round;marker-end:url(#arrow)}
+      .note{font-size:19px;font-weight:700;fill:#173d66}
+    </style>
+  </defs>
+  <rect width="1600" height="1240" fill="url(#bg)"/>
+  <text x="800" y="66" text-anchor="middle" class="title">智能手表共享传感器 I²C 互斥锁逻辑</text>
+  <text x="800" y="107" text-anchor="middle" class="subtitle">同一把 Mutex · 完整访问受保护 · 锁忙则阻塞 · 优先级继承</text>
+
+  <!-- Section 1: actual participating task paths, not all physical sensor users. -->
+  <rect x="22" y="151" width="1556" height="502" rx="18" fill="white" stroke="#075cad" stroke-width="2.4" filter="url(#shadow)"/>
+  <rect x="40" y="131" width="746" height="56" rx="13" fill="url(#blue)"/>
+  <circle cx="73" cy="159" r="20" fill="white"/>
+  <text x="73" y="167" text-anchor="middle" class="head blueText">1</text>
+  <text x="104" y="168" class="tab">任务侧共用一把锁：保存任务补齐 MPU 步数访问</text>
+
+  <rect x="50" y="209" width="536" height="407" rx="14" fill="#f7fbff" stroke="#6aa6e0" stroke-width="1.6" stroke-dasharray="8 6"/>
+  <text x="72" y="241" class="head blueText">已接入同一把锁的三个任务</text>
+  <rect x="70" y="261" width="495" height="76" rx="12" fill="white" stroke="#0d67bd" stroke-width="1.8"/>
+  <text x="88" y="291" class="head">MPUCheckTask</text><text x="542" y="291" text-anchor="end" class="body blueText">优先级 10</text>
+  <text x="88" y="319" class="small">抬腕检测：MPU_isHorizontal()</text>
+  <rect x="70" y="354" width="495" height="98" rx="12" fill="#f3faef" stroke="#4e9130" stroke-width="1.8"/>
+  <text x="88" y="386" class="head">SensorDataUpdateTask</text><text x="542" y="386" text-anchor="end" class="body blueText">优先级 9</text>
+  <text x="88" y="414" class="small">MPU 步数 / AHT21 温湿度</text>
+  <text x="88" y="438" class="small">LSM303 原始数据 / SPL06 气压与高度</text>
+  <rect x="70" y="469" width="495" height="117" rx="12" fill="#f7f1ff" stroke="#8052cf" stroke-width="1.8"/>
+  <text x="88" y="501" class="head">DataSaveTask</text><text x="542" y="501" text-anchor="end" class="body blueText">优先级 10</text>
+  <text x="88" y="531" class="body">GetSteps() 读取 / SetSteps(0) 跨日清零</text>
+  <text x="88" y="564" class="small" style="fill:#7044b5;font-weight:700">本次：两处各加一对取锁 / 解锁</text>
+
+  <path d="M565 299 H606 V372 H636" class="line"/>
+  <path d="M565 403 H606 V372 H636" class="line"/>
+  <path d="M565 516 H606 V372 H636" class="line"/>
+  <rect x="638" y="278" width="257" height="198" rx="14" fill="#f7f1ff" stroke="#8052cf" stroke-width="2"/>
+  <text x="766" y="316" text-anchor="middle" class="head">SensorI2CMutex</text>
+  <text x="766" y="350" text-anchor="middle" class="body">TaskLock() → 完整访问</text>
+  <text x="766" y="380" text-anchor="middle" class="body">→ TaskUnlock()</text>
+  <line x1="655" y1="399" x2="878" y2="399" stroke="#c9b2eb"/>
+  <text x="766" y="428" text-anchor="middle" class="small">线程创建前 osMutexNew</text>
+  <text x="766" y="455" text-anchor="middle" class="small">锁忙：等待，不操作引脚</text>
+  <path d="M895 372 H934" class="line"/>
+  <rect x="936" y="314" width="236" height="116" rx="12" fill="#eef6ff" stroke="#0d67bd" stroke-width="1.8"/>
+  <text x="1054" y="352" text-anchor="middle" class="head">传感器软件 I²C</text>
+  <text x="1054" y="386" text-anchor="middle" class="body">PB13 SDA / PB14 SCL</text>
+  <text x="1054" y="413" text-anchor="middle" class="small">从机地址只负责选择器件</text>
+  <path d="M1172 372 H1210" class="line"/>
+  <rect x="1212" y="220" width="340" height="265" rx="14" fill="#fffaf0" stroke="#c59127" stroke-width="1.8"/>
+  <text x="1382" y="258" text-anchor="middle" class="head" style="fill:#986209">物理上共用这组引脚</text>
+  <line x1="1230" y1="276" x2="1534" y2="276" stroke="#e3d3ac"/>
+  <text x="1382" y="311" text-anchor="middle" class="body">MPU6050 · AHT21</text>
+  <text x="1382" y="345" text-anchor="middle" class="body">LSM303 · SPL06 · EM7028</text>
+  <text x="1382" y="388" text-anchor="middle" class="small">五个器件 ≠ 五个采集任务</text>
+  <text x="1382" y="424" text-anchor="middle" class="small" style="fill:#986209">物理共线不表示所有调用已加锁</text>
+  <text x="1382" y="453" text-anchor="middle" class="small" style="fill:#986209">未覆盖路径见底部说明</text>
+
+  <path d="M565 564 H595 V602 H923 V561 H953" fill="none" stroke="#b37a20" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#mutedArrow)"/>
+  <text x="647" y="584" class="small" style="fill:#986209">EEPROM 分支：另一条总线</text>
+  <rect x="955" y="520" width="597" height="89" rx="12" fill="#fffaf0" stroke="#c59127" stroke-width="1.7"/>
+  <text x="1253" y="551" text-anchor="middle" class="head">SettingGet / SettingSave → BL24C02</text>
+  <text x="1253" y="581" text-anchor="middle" class="body" style="fill:#986209">PA11 SDA / PA12 SCL · 不占用传感器锁</text>
+
+  <!-- Section 2: distinguish CPU preemption from protected bus access. -->
+  <rect x="22" y="697" width="1556" height="251" rx="18" fill="white" stroke="#e06a0a" stroke-width="2.4" filter="url(#shadow)"/>
+  <rect x="40" y="676" width="803" height="56" rx="13" fill="url(#orange)"/>
+  <circle cx="73" cy="704" r="20" fill="white"/>
+  <text x="73" y="712" text-anchor="middle" class="head orangeText">2</text>
+  <text x="104" y="713" class="tab">锁忙时：CPU 可以抢占，但等待者不能插入总线通信</text>
+
+  <rect x="52" y="761" width="265" height="106" rx="12" fill="#f3faef" stroke="#4e9130" stroke-width="1.8"/>
+  <text x="184" y="797" text-anchor="middle" class="head">任务 9 已持锁</text>
+  <text x="184" y="829" text-anchor="middle" class="body">传感器访问尚未结束</text>
+  <text x="184" y="855" text-anchor="middle" class="small">它可以被抢占 CPU</text>
+  <path d="M317 814 H353" class="line"/>
+  <rect x="355" y="761" width="265" height="106" rx="12" fill="#eef6ff" stroke="#0d67bd" stroke-width="1.8"/>
+  <text x="487" y="797" text-anchor="middle" class="head">任务 10 取锁失败</text>
+  <text x="487" y="829" text-anchor="middle" class="body">阻塞等待，不发 START</text>
+  <text x="487" y="855" text-anchor="middle" class="small">不是自旋等待，也不改引脚</text>
+  <path d="M620 814 H656" class="line"/>
+  <rect x="658" y="761" width="265" height="106" rx="12" fill="#f7f1ff" stroke="#8052cf" stroke-width="1.8"/>
+  <text x="790" y="797" text-anchor="middle" class="head">持锁者继承 9 → 10</text>
+  <text x="790" y="829" text-anchor="middle" class="body">继续完成传感器访问</text>
+  <text x="790" y="855" text-anchor="middle" class="small">减少被中优先级任务拖延</text>
+  <path d="M923 814 H959" class="line"/>
+  <rect x="961" y="761" width="265" height="106" rx="12" fill="#fff8ef" stroke="#e06a0a" stroke-width="1.8"/>
+  <text x="1093" y="797" text-anchor="middle" class="head">通信结束，释放锁</text>
+  <text x="1093" y="829" text-anchor="middle" class="body">原持锁者恢复为 9</text>
+  <text x="1093" y="855" text-anchor="middle" class="small">当前无嵌套持锁的示例</text>
+  <path d="M1226 814 H1262" class="line"/>
+  <rect x="1264" y="761" width="285" height="106" rx="12" fill="#f3faef" stroke="#4e9130" stroke-width="1.8"/>
+  <text x="1406" y="797" text-anchor="middle" class="head">等待任务获得同一把锁</text>
+  <text x="1406" y="829" text-anchor="middle" class="body">开始自己的 I²C 访问</text>
+  <text x="1406" y="855" text-anchor="middle" class="small">同优先级切换也须遵守锁</text>
+  <text x="800" y="913" text-anchor="middle" class="note">核心区别：互斥让总线访问串行；优先级继承缩短持锁者被其它任务拖延的时间。</text>
+
+  <!-- Boundary disclosure: the user explicitly requested no other changes. -->
+  <rect x="22" y="979" width="1556" height="152" rx="16" fill="#fffaf1" stroke="#c59127" stroke-width="1.8"/>
+  <circle cx="57" cy="1013" r="15" fill="#dc9617"/>
+  <text x="57" y="1021" text-anchor="middle" class="head" style="fill:white">!</text>
+  <text x="83" y="1020" class="head" style="fill:#986209">当前范围：不是全工程所有共享 I²C 调用都已接入同一把锁</text>
+  <text x="52" y="1056" class="body">心率使能 / 部分心率采样路径、界面退出时的心率关闭与 LSM303 休眠：本次保持原代码。</text>
+  <text x="52" y="1085" class="body">vTaskSuspendAll() 只挂起任务调度，不等同于取得此锁；不遵守这把锁的调用仍可能打断持锁者。</text>
+  <text x="52" y="1113" class="small">此前 MPU / LSM303 隔离 A/B：跨任务 START 148 → 0、ACK 超时 96 → 0；不代表本次补锁后的整机重新验收。</text>
+
+  <rect x="22" y="1153" width="1556" height="66" rx="14" fill="#eef6ff" stroke="#075cad" stroke-width="1.8"/>
+  <text x="800" y="1194" text-anchor="middle" class="head blueText">一句话：谁访问同一条总线，谁就必须先拿同一把锁；完整访问结束后再释放。</text>
+</svg>

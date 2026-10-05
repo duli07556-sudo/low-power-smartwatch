@@ -85,7 +85,12 @@ void DataSaveTask(void *argument)
 			if(dat[0] != nowdate.Date)
 			{
 				if(!HWInterface.IMU.ConnectionError)
+				{
+					// MPU 共用传感器 I2C：清零步数也须获取同一把锁，EEPROM 不在此锁内。
+					SensorI2C_TaskLock();
 					HWInterface.IMU.SetSteps(0);
+					SensorI2C_TaskUnlock();
+				}
 
 				dat[0] = nowdate.Date;
 				dat[2] = 0;
@@ -94,7 +99,11 @@ void DataSaveTask(void *argument)
 			}
 			else
 			{
-				uint16_t temp = HWInterface.IMU.GetSteps();
+				uint16_t temp;
+				// GetSteps 会访问 MPU 硬件；与传感器更新、抬腕检测任务共用互斥锁。
+				SensorI2C_TaskLock();
+				temp = HWInterface.IMU.GetSteps();
+				SensorI2C_TaskUnlock();
 				dat[0] = nowdate.Date;
 				dat[2] = temp & 0xff;
 				dat[1] = temp>>8 & 0xff;

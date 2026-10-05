@@ -1,6 +1,9 @@
 #include "iic_hal.h"
 #include "delay.h"
 
+/* Diagnostic counter used by both the baseline and mutex builds. */
+volatile uint32_t g_sensor_i2c_ack_error_count = 0;
+
 /**
   * @brief SDA线输入模式配置
   * @param None
@@ -133,6 +136,8 @@ unsigned char IICWaitAck(iic_bus_t *bus)
 				delay_us(1);
         if (0 == cErrTime)
         {
+            /* Count every missing ACK so both builds use the same metric. */
+            g_sensor_i2c_ack_error_count++;
             SDA_Output_Mode(bus);
             IICStop(bus);
             return ERROR;
