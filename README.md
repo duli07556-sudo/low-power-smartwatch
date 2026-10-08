@@ -88,6 +88,8 @@ flowchart LR
 - DMA 完成后调用 `lv_disp_flush_ready()` 通知 LVGL
 - 编译开关保留 SPI 轮询刷新方式，便于对比和回退
 
+![智能手表从按键切页到 LCD 像素显示：LVGL 双缓冲与异步 SPI DMA 刷新流程](docs/lvgl-spi-dma-display-flow.png)
+
 ### 3. 设置与每日步数掉电保存
 
 界面事件只更新运行数据并向 `DataSave_MessageQueue` 投递保存请求，`DataSaveTask` 集中执行软件 I2C 写入，避免 EEPROM 写操作阻塞 LVGL。开机时由 `HardwareInitTask` 校验 EEPROM 标志并恢复有效数据。
